@@ -1,0 +1,19 @@
+{
+  "name": "sxVUE",
+  "version": "1.0.0",
+  "description": "",
+  "main": "rollup.config.js",
+  "dependencies": {
+    "rollup": "^2.47.0",
+    "rollup-plugin-serve": "^1.1.0",
+    "rollup-plugin-babel": "^4.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev":"rollup -c -w"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

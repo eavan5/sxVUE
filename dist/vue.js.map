@@ -1,0 +1,1 @@
+{"version":3,"file":"vue.js","sources":["../src/index.js"],"sourcesContent":["function Vue() {\n\n}\nlet a = 1\nlet b = 2\nconsole.log(a+b);\nexport default Vue"],"names":["Vue","a","b","console","log"],"mappings":";;;;;;CAAA,SAASA,GAAT,GAAe;;CAGf,IAAIC,CAAC,GAAG,CAAR;CACA,IAAIC,CAAC,GAAG,CAAR;CACAC,OAAO,CAACC,GAAR,CAAYH,CAAC,GAACC,CAAd;;;;;;;;"}
