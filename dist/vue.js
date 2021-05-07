@@ -57,6 +57,7 @@
       console.log('数组方法被调用了');
       var result = oldArrayProtoMethods[method].apply(this, arguments);
       var inserted;
+      var ob = this.__ob__;
 
       switch (method) {
         case 'push':
@@ -71,7 +72,7 @@
       } //如果当前的inserted有值 则继续检测
 
 
-      if (inserted) observeArray(inserted);
+      if (inserted) ob.serveArray(inserted);
       return result;
     };
   });
@@ -79,6 +80,16 @@
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
       _classCallCheck(this, Observer);
+
+      //使用defineProperty重新定义属性
+      //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
+      Object.defineProperty(data, '_ob_', {
+        enumerable: false,
+        //不能被枚举,不能被循环出来
+        configurable: false,
+        // 不能修改赋值
+        value: this
+      });
 
       if (Array.isArray(data)) {
         Object.setPrototypeOf(data, arrayMethods); //观测数组中的对象类型,对象变化也需要做一些事
@@ -100,7 +111,7 @@
     }, {
       key: "walk",
       value: function walk(data) {
-        var keys = Reflect.ownKeys(data); // console.log(keys);
+        var keys = Object.keys(data); // console.log(keys);
 
         keys.forEach(function (key) {
           defineReactive(data, key, data[key]);
@@ -132,8 +143,21 @@
   function observe(data) {
     // Object.defineProperty实际上也是可以对数组进行监控的，但是由于监控数组会去递归数组，会造成性能问题，所以改用数组原型重写的方法
     // 如果不是对象直接return
-    if (_typeof(data) !== 'object' || data === null) return;
+    if (_typeof(data) !== 'object' || data === null) return; //如果已经被监听,则return
+
+    if (data.__ob__) return;
     return new Observer(data);
+  }
+
+  function proxy(vm, data, key) {
+    Object.defineProperty(vm, key, {
+      get: function get() {
+        return vm[data][key];
+      },
+      set: function set(newValue) {
+        vm[data][key] = newValue;
+      }
+    });
   }
 
   function initState(vm) {
@@ -157,6 +181,13 @@
 
     vm._data = data = typeof data === 'function' ? data.call(vm) : data; //数据的劫持方案  对象Object.defineProperty
     //数组 单独处理的
+    //当我从vm上取属性时,帮我吧属性上的取值代理到vm._data上
+
+    for (var key in data) {
+      if (Object.hasOwnProperty.call(data, key)) {
+        proxy(vm, "_data", key);
+      }
+    }
 
     observe(data);
   }
