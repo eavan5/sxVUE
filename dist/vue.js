@@ -42,19 +42,66 @@
     return Constructor;
   }
 
+  // 切片编程
+  var oldArrayProtoMethods = Array.prototype; //继承一下
+
+  var arrayMethods = Object.create(oldArrayProtoMethods);
+  var methods = ['push', 'pop', 'unshift', 'shift', 'reverse', 'splice', 'sort'];
+  methods.forEach(function (method) {
+    arrayMethods[method] = function () {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      //这里的this就是observer的data
+      console.log('数组方法被调用了');
+      var result = oldArrayProtoMethods[method].apply(this, arguments);
+      var inserted;
+
+      switch (method) {
+        case 'push':
+        case 'unshift':
+          //这两个内容都是添加,添加的内容可能是对象类型,应该再次进行劫持
+          inserted = args;
+          break;
+
+        case 'splice':
+          //vue.$set原理
+          inserted = args.slice(2);
+      } //如果当前的inserted有值 则继续检测
+
+
+      if (inserted) observeArray(inserted);
+      return result;
+    };
+  });
+
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
       _classCallCheck(this, Observer);
 
-      //使用defineProperty 重新定义属性
-      this.walk(data);
+      if (Array.isArray(data)) {
+        Object.setPrototypeOf(data, arrayMethods); //观测数组中的对象类型,对象变化也需要做一些事
+
+        this.observeArray(data);
+      } else {
+        //使用defineProperty 重新定义属性
+        this.walk(data);
+      }
     }
 
     _createClass(Observer, [{
+      key: "observeArray",
+      value: function observeArray(data) {
+        data.forEach(function (item) {
+          observe(item);
+        });
+      }
+    }, {
       key: "walk",
       value: function walk(data) {
-        var keys = Reflect.ownKeys(data);
-        console.log(keys);
+        var keys = Reflect.ownKeys(data); // console.log(keys);
+
         keys.forEach(function (key) {
           defineReactive(data, key, data[key]);
         });
@@ -83,6 +130,7 @@
   }
 
   function observe(data) {
+    // Object.defineProperty实际上也是可以对数组进行监控的，但是由于监控数组会去递归数组，会造成性能问题，所以改用数组原型重写的方法
     // 如果不是对象直接return
     if (_typeof(data) !== 'object' || data === null) return;
     return new Observer(data);
