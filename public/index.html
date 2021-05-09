@@ -7,7 +7,12 @@
   <title>Document</title>
 </head>
 <body>
-  <div id="id"></div>
+  <div id="app">hello
+    <ul>
+      <li>{{school.name}}</li>
+      <li>world</li>
+    </ul>
+  </div>
   <script src="/dist/vue.js"></script>
   <script>
     const vm = new Vue({
@@ -21,10 +26,19 @@
           },
           c:[1,{a:1},3,4]
         }
-      }
+      },
+      // render(h){
+      //   return h('div',{id:'a'},'hello')
+      // }
+      // template:`<div id='a'>hello</div>`
     });
     // console.log(vm._data);
-   console.log( vm.a);
+
+    //渲染的操作
+    //1.默认会先找render方法
+    //2.如果没有传render就会去查找template 
+    //3.找当前el置顶的元素中的内容来当template 渲染成为render
+    //AST解析template 变成 render函数
   </script>
 </body>
 </html>

@@ -3,7 +3,7 @@ class Observer {
   constructor(data) {
     //使用defineProperty重新定义属性
     //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
-    Object.defineProperty(data, '_ob_', {
+    Object.defineProperty(data, '__ob__', {
       enumerable: false, //不能被枚举,不能被循环出来
       configurable: false, // 不能修改赋值
       value: this
@@ -24,7 +24,6 @@ class Observer {
   }
   walk(data) {
     let keys = Object.keys(data)
-    // console.log(keys);
     keys.forEach(key => {
       defineReactive(data, key, data[key])
     })

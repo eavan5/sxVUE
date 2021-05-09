@@ -4,6 +4,165 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 }(this, (function () { 'use strict';
 
+  var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*"; //匹配标签名字  //ps:里面的\\ 是在字符串定义正则的时候需要转义
+  //  ?: 匹配不捕获
+
+  var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")"); // <my:xx>  
+
+  var startTagOpen = new RegExp("^<".concat(qnameCapture)); // 标签开头的正则 捕获的内容是标签名
+
+  var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>")); // 匹配标签结尾的 </div>
+
+  var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // 匹配属性的
+
+  var startTagClose = /^\s*(\/?)>/; // 匹配标签结束的 >
+
+  function parseHTML(html) {
+    function createASTElement(tagName, attrs) {
+      return {
+        tag: tagName,
+        //标签名
+        type: 1,
+        // 元素类型
+        children: [],
+        //子列表
+        attrs: attrs,
+        //属性
+        parent: null //父节点
+
+      };
+    }
+
+    var root,
+        currentParent,
+        stack = []; //标签是否符合预期
+
+    function start(tagName, attrs) {
+      var element = createASTElement(tagName, attrs);
+
+      if (!root) {
+        root = element;
+      }
+
+      currentParent = element; // 当前解析的标签 保存起来
+
+      stack.push(element); //将生成的AST元素放到栈里面
+
+      console.log(tagName, attrs, '---开始标签---');
+    }
+
+    function end(tagName) {
+      //在结尾标签处,保存父子关系
+      var element = stack.pop();
+      console.log(tagName, '---结束标签---');
+      currentParent = stack[stack.length - 1]; // 因为出栈了 所以当前标签是之前的一个标签
+
+      if (currentParent) {
+        // 当闭合的时候可以知道这个标签的父节点是谁
+        element.parent = currentParent;
+        currentParent.children.push(element);
+      }
+    }
+
+    function chars(text) {
+      text = text.replace(/\s/g, ''); //去除空行
+
+      if (text) {
+        currentParent.children.push({
+          type: 3,
+          text: text
+        });
+      }
+
+      console.log(text, '---文本---');
+    }
+
+    while (html) {
+      //只要html不为空 则一直解析
+      var textEnd = html.indexOf('<');
+
+      if (textEnd == 0) {
+        //是标签
+        var startTagMatch = parseStartTag(); //<xxx>开始标签匹配的结果
+
+        if (startTagMatch) {
+          start(startTagMatch.tagName, startTagMatch.attrs);
+          continue;
+        }
+
+        var endTagMatch = html.match(endTag); //</ xxx>结束标签匹配
+
+        if (endTagMatch) {
+          advance(endTagMatch[0].length);
+          end(endTagMatch[1]); //将结束标签传入
+
+          continue;
+        }
+      }
+
+      var text = void 0;
+
+      if (textEnd > 0) {
+        //是文本
+        text = html.substring(0, textEnd);
+      }
+
+      if (text) {
+        advance(text.length);
+        chars(text);
+      } // break
+
+    } //匹配到之后将html更新
+
+
+    function advance(n) {
+      html = html.substring(n);
+    }
+
+    function parseStartTag() {
+      var start = html.match(startTagOpen); // console.log(start);
+
+      if (start) {
+        var match = {
+          tagName: start[1],
+          attrs: []
+        };
+        advance(start[0].length); //删除开始标签
+        //如果直接是闭合标签 说明没有属性
+
+        var _end, attr; //不是结尾标签,并且能匹配到属性
+
+
+        while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+          match.attrs.push({
+            name: attr[1],
+            value: attr[3] | attr[4] | attr[5]
+          });
+          advance(attr[0].length);
+          continue;
+        } //去除 结尾的>
+
+
+        if (_end) {
+          // debugger
+          advance(_end[0].length);
+        }
+
+        return match;
+      }
+    }
+
+    return root;
+  }
+
+  function compileToFunctions(template) {
+    //html模板 => render函数
+    //1.将html代码转换成AST语法树(可以用AST数去描述语言本身) 
+    //ps:虚拟dom(虚拟dom是用对象来描述节点的)
+    var ast = parseHTML(template);
+    console.log(ast); //2.通过这棵树 重新生成代码
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -83,7 +242,7 @@
 
       //使用defineProperty重新定义属性
       //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
-      Object.defineProperty(data, '_ob_', {
+      Object.defineProperty(data, '__ob__', {
         enumerable: false,
         //不能被枚举,不能被循环出来
         configurable: false,
@@ -111,8 +270,7 @@
     }, {
       key: "walk",
       value: function walk(data) {
-        var keys = Object.keys(data); // console.log(keys);
-
+        var keys = Object.keys(data);
         keys.forEach(function (key) {
           defineReactive(data, key, data[key]);
         });
@@ -198,6 +356,32 @@
       vm.$options = options; //初始化状态
 
       initState(vm); //初始化事件...
+      //如果有el属性 则表示需要渲染模板
+
+      if (vm.$options.el) {
+        vm.$mount(vm.$options.el);
+      }
+    };
+
+    Vue.prototype.$mount = function (el) {
+      //挂载操作
+      var vm = this;
+      var options = vm.$options;
+      el = document.querySelector(el);
+
+      if (!options.render) {
+        //没有render方法,则将template转换成render方法
+        var template = options.template;
+
+        if (!template && el) {
+          template = el.outerHTML;
+        } // 将模板编译成render函数
+
+
+        var render = compileToFunctions(template);
+        options.render = render;
+      } //有render方法
+
     };
   }
 
