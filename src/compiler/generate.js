@@ -43,17 +43,17 @@ function gen(node) {
       index = match.index //保存匹配到的索引
       if (index > lastIndex) {
         tokens.push(JSON.stringify(text.slice(lastIndex, index)))
-        tokens.push(`_s(${match[1].trim()})`)
-        lastIndex = index + match[0].length
       }
-      if (lastIndex < text.length) {
-        tokens.push(JSON.stringify(text.slice(lastIndex)))
-      }
-      return `_v(${tokens.join('+')})`
+      tokens.push(`_s(${match[1].trim()})`)
+      lastIndex = index + match[0].length
     }
-
+    if (lastIndex < text.length) {
+      tokens.push(JSON.stringify(text.slice(lastIndex)))
+    }
+    return `_v(${tokens.join('+')})`
   }
 }
+
 
 function getChildren(el) {
   const children = el.children

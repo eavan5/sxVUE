@@ -161,16 +161,17 @@
 
         if (index > lastIndex) {
           tokens.push(JSON.stringify(text.slice(lastIndex, index)));
-          tokens.push("_s(".concat(match[1].trim(), ")"));
-          lastIndex = index + match[0].length;
         }
 
-        if (lastIndex < text.length) {
-          tokens.push(JSON.stringify(text.slice(lastIndex)));
-        }
-
-        return "_v(".concat(tokens.join('+'), ")");
+        tokens.push("_s(".concat(match[1].trim(), ")"));
+        lastIndex = index + match[0].length;
       }
+
+      if (lastIndex < text.length) {
+        tokens.push(JSON.stringify(text.slice(lastIndex)));
+      }
+
+      return "_v(".concat(tokens.join('+'), ")");
     }
   }
 
@@ -358,6 +359,53 @@
     return render;
   }
 
+  function patch(oldVnode, vnode) {
+    //将虚拟节点转换成真实节点
+    console.log(oldVnode, vnode);
+    var el = createElm(vnode); //产生真实的dom
+
+    var parentElm = oldVnode.parentNode; //获取老的app的父亲 => body
+
+    parentElm.insertBefore(el, oldVnode.nextSibling); //当前的真实元素插入到app的后面
+
+    parentElm.removeChild(oldVnode); //删除老的节点
+  }
+
+  function createElm(vnode) {
+    var tag = vnode.tag,
+        children = vnode.children;
+        vnode.key;
+        vnode.data;
+        var text = vnode.text;
+
+    if (typeof tag === 'string') {
+      //创建元素 放到vnode.el上
+      vnode.el = document.createElement(tag);
+      children.forEach(function (child) {
+        //遍历儿子  将儿子渲染后的结果扔到父亲中
+        vnode.el.appendChild(createElm(child));
+      });
+    } else {
+      // 创建文本 放到vnode.el上
+      vnode.el = document.createTextNode(text);
+    }
+
+    return vnode.el;
+  } // vue渲染流程 -> 先初始化数据 -> 将魔棒进行编译 => render函数 -> 生成虚拟节点 -> 生成真实节点 -> 扔到dom上去
+
+  function lifecycleMixin(Vue) {
+    Vue.prototype._update = function (vnode) {
+      console.log(vnode, '--------vnode-');
+      var vm = this;
+      patch(vm.$el, vnode);
+    };
+  }
+  function mountComponent(vm, el) {
+    // 调用render方法去渲染el属性
+    //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
+    vm._update(vm._render());
+  }
+
   // 切片编程
   var oldArrayProtoMethods = Array.prototype; //继承一下
 
@@ -525,6 +573,7 @@
       var vm = this;
       var options = vm.$options;
       el = document.querySelector(el);
+      vm.$el = el;
 
       if (!options.render) {
         //没有render方法,则将template转换成render方法
@@ -537,7 +586,61 @@
 
         var render = compileToFunctions(template);
         options.render = render;
-      } //有render方法
+      } //需要挂载这个组件
+
+
+      mountComponent(vm);
+    };
+  }
+
+  function renderMixin(Vue) {
+    Vue.prototype._c = function () {
+      //创建虚拟dom元素
+      return createElement.apply(void 0, arguments);
+    };
+
+    Vue.prototype._s = function (val) {
+      // stringify
+      return val == null ? '' : _typeof(val) === 'object' ? JSON.stringify(val) : val;
+    };
+
+    Vue.prototype._v = function (text) {
+      //创建虚拟dom文本元素
+      return createTextVnode(text);
+    };
+
+    Vue.prototype._render = function () {
+      // _render = render
+      var vm = this;
+      var render = vm.$options.render;
+      var vnode = render.call(vm);
+      console.log(vnode);
+      return vnode;
+    };
+  }
+
+  function createElement(tag) {
+    var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+    for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+      children[_key - 2] = arguments[_key];
+    }
+
+    return vnode(tag, data, data.key, children);
+  }
+
+  function createTextVnode(text) {
+    return vnode(undefined, undefined, undefined, undefined, text);
+  } //用来产生虚拟dom的
+
+
+  function vnode(tag, data, key, children, text) {
+    return {
+      tag: tag,
+      data: data,
+      key: key,
+      children: children,
+      text: text // componentsInstances:
 
     };
   }
@@ -548,7 +651,11 @@
   } //Vue初始化方法
 
 
-  initMixin(Vue);
+  initMixin(Vue); //混合生命周期
+
+  lifecycleMixin(Vue); //渲染
+
+  renderMixin(Vue);
 
   return Vue;
 
