@@ -4,6 +4,194 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 }(this, (function () { 'use strict';
 
+  function _typeof(obj) {
+    "@babel/helpers - typeof";
+
+    if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+      _typeof = function (obj) {
+        return typeof obj;
+      };
+    } else {
+      _typeof = function (obj) {
+        return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+      };
+    }
+
+    return _typeof(obj);
+  }
+
+  function _classCallCheck(instance, Constructor) {
+    if (!(instance instanceof Constructor)) {
+      throw new TypeError("Cannot call a class as a function");
+    }
+  }
+
+  function _defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if ("value" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) _defineProperties(Constructor, staticProps);
+    return Constructor;
+  }
+
+  function _slicedToArray(arr, i) {
+    return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
+  }
+
+  function _arrayWithHoles(arr) {
+    if (Array.isArray(arr)) return arr;
+  }
+
+  function _iterableToArrayLimit(arr, i) {
+    var _i = arr && (typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"]);
+
+    if (_i == null) return;
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+
+    var _s, _e;
+
+    try {
+      for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
+        _arr.push(_s.value);
+
+        if (i && _arr.length === i) break;
+      }
+    } catch (err) {
+      _d = true;
+      _e = err;
+    } finally {
+      try {
+        if (!_n && _i["return"] != null) _i["return"]();
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+
+    return _arr;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === "string") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === "Object" && o.constructor) n = o.constructor.name;
+    if (n === "Map" || n === "Set") return Array.from(o);
+    if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _nonIterableRest() {
+    throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+  }
+
+  // 编写的代码  <div id='app' style="color:red"> hello {{name}} <span>hello</span></div>
+  // 逾期结果: render(){
+  //   return _c('div',{id:'app',style:{color:'red'}},_v('hello'+_s(name)),_c('span',null,_v("hello")))
+  // }
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; //匹配html里面的模板的
+  // 语法层面的转译
+
+  function genProps(attrs) {
+    var str = '';
+
+    var _loop = function _loop(i) {
+      var attr = attrs[i];
+
+      if (attr.name === 'style') {
+        var obj = {}; //对样式进行特殊处理
+
+        attr.value.split(',').forEach(function (item) {
+          var _item$split = item.split(":"),
+              _item$split2 = _slicedToArray(_item$split, 2),
+              key = _item$split2[0],
+              value = _item$split2[1];
+
+          obj[key] = value;
+          attr.value = obj;
+        });
+      }
+
+      str += "".concat(attr.name, ":").concat(JSON.stringify(attr.value), ",");
+    };
+
+    for (var i = 0; i < attrs.length; i++) {
+      _loop(i);
+    }
+
+    return "{".concat(str.slice(0, -1), "}");
+  }
+
+  function gen(node) {
+    if (node.type === 1) {
+      //生成元素节点的字符串
+      return generate(node);
+    } else {
+      var text = node.text; // 如果是普通文本 (不带{{}}的)
+
+      if (!defaultTagRE.test(text)) {
+        return "_v(".concat(JSON.stringify(text), ")"); // _v("hello{{name}}") => _v('hello'+_v(name))
+      } // 如果是<div>hello{{aaa}} world {{bbb}}</div>
+
+
+      var tokens = []; //存放 每一段代码
+
+      var lastIndex = defaultTagRE.lastIndex = 0; //如果正则是全局模式 需要每次使用前 置为零
+
+      var match, index; //每次匹配到的结果
+
+      while (match = defaultTagRE.exec(text)) {
+        index = match.index; //保存匹配到的索引
+
+        if (index > lastIndex) {
+          tokens.push(JSON.stringify(text.slice(lastIndex, index)));
+          tokens.push("_s(".concat(match[1].trim(), ")"));
+          lastIndex = index + match[0].length;
+        }
+
+        if (lastIndex < text.length) {
+          tokens.push(JSON.stringify(text.slice(lastIndex)));
+        }
+
+        return "_v(".concat(tokens.join('+'), ")");
+      }
+    }
+  }
+
+  function getChildren(el) {
+    var children = el.children;
+
+    if (children) {
+      // 将所有转换后的儿子用逗号拼接起来
+      return children.map(function (child) {
+        return gen(child);
+      }).join(',');
+    }
+  }
+
+  function generate(el) {
+    var children = getChildren(el); //儿子生成
+
+    var code = "_c('".concat(el.tag, "',").concat(el.attrs.length ? "".concat(genProps(el.attrs)) : "undefined").concat(children ? ",".concat(children) : '', ")");
+    return code;
+  }
+
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*"; //匹配标签名字  //ps:里面的\\ 是在字符串定义正则的时候需要转义
   //  ?: 匹配不捕获
 
@@ -47,14 +235,13 @@
       currentParent = element; // 当前解析的标签 保存起来
 
       stack.push(element); //将生成的AST元素放到栈里面
-
-      console.log(tagName, attrs, '---开始标签---');
+      // console.log(tagName, attrs, '---开始标签---');
     }
 
     function end(tagName) {
       //在结尾标签处,保存父子关系
-      var element = stack.pop();
-      console.log(tagName, '---结束标签---');
+      var element = stack.pop(); // console.log(tagName, '---结束标签---');
+
       currentParent = stack[stack.length - 1]; // 因为出栈了 所以当前标签是之前的一个标签
 
       if (currentParent) {
@@ -72,9 +259,8 @@
           type: 3,
           text: text
         });
-      }
+      } // console.log(text, '---文本---');
 
-      console.log(text, '---文本---');
     }
 
     while (html) {
@@ -136,7 +322,7 @@
         while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
           match.attrs.push({
             name: attr[1],
-            value: attr[3] | attr[4] | attr[5]
+            value: attr[3] || attr[4] || attr[5]
           });
           advance(attr[0].length);
           continue;
@@ -146,7 +332,8 @@
         if (_end) {
           // debugger
           advance(_end[0].length);
-        }
+        } // console.log('match', match);
+
 
         return match;
       }
@@ -160,45 +347,15 @@
     //1.将html代码转换成AST语法树(可以用AST数去描述语言本身) 
     //ps:虚拟dom(虚拟dom是用对象来描述节点的)
     var ast = parseHTML(template);
-    console.log(ast); //2.通过这棵树 重新生成代码
-  }
+    console.log(ast); //2.优化静态节点
+    // 3.通过这颗树  重新生成代码
 
-  function _typeof(obj) {
-    "@babel/helpers - typeof";
+    var code = generate(ast);
+    console.log(code); //4.将字符串转换成render函数  限制取值范围 通过with来进行取值  稍后我们调用render函数就可以通过改变this 让这个函数内部取到成果了
 
-    if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
-      _typeof = function (obj) {
-        return typeof obj;
-      };
-    } else {
-      _typeof = function (obj) {
-        return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-      };
-    }
-
-    return _typeof(obj);
-  }
-
-  function _classCallCheck(instance, Constructor) {
-    if (!(instance instanceof Constructor)) {
-      throw new TypeError("Cannot call a class as a function");
-    }
-  }
-
-  function _defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  function _createClass(Constructor, protoProps, staticProps) {
-    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) _defineProperties(Constructor, staticProps);
-    return Constructor;
+    var render = new Function("with(this){return ".concat(code, "}"));
+    console.log(render);
+    return render;
   }
 
   // 切片编程
