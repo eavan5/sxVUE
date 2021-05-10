@@ -1,13 +1,22 @@
 import { compileToFunctions } from './compiler/index';
-import { mountComponent } from './lifecycle.js';
+import { callHook, mountComponent } from './lifecycle.js';
 import { initState } from './state'
+import { mergeOptions } from './util';
 export function initMixin(Vue) {
   Vue.prototype._init = function (options) {
     const vm = this;
-    vm.$options = options;
+    // 写成 vm.constructor.options 是为了防止子组件的options一起被混合
+    vm.$options = mergeOptions(vm.constructor.options, options);  //需要将用户自定义的options和全局的options做合并
+
+    //初始化之前调用beforeCreate
+    callHook(vm, 'beforeCreate')
+
 
     //初始化状态
     initState(vm)
+
+    callHook(vm, 'created')
+
 
     //初始化事件...
 
@@ -33,8 +42,11 @@ export function initMixin(Vue) {
       const render = compileToFunctions(template)
       options.render = render
     }
+    callHook(vm, 'beforeMount')
+
     //需要挂载这个组件
     mountComponent(vm, el)
 
+    callHook(vm, 'beforeMounted')
   }
 }

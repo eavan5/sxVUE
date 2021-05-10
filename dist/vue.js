@@ -4,6 +4,90 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 }(this, (function () { 'use strict';
 
+  function proxy(vm, data, key) {
+    Object.defineProperty(vm, key, {
+      get: function get() {
+        return vm[data][key];
+      },
+      set: function set(newValue) {
+        vm[data][key] = newValue;
+      }
+    });
+  }
+  var LIFECYCLE_HOOKS = ['beforeCreate', 'created', 'beforeMount', 'mounted', 'beforeUpdate', 'updated', 'beforeDestroy', 'destroyed'];
+  var strategies = {};
+
+  strategies.data = function (parentVal, childVal) {
+    return childVal; //这里应该有合并data的策略
+  };
+
+  strategies.computed = function () {};
+
+  strategies.watch = function () {};
+
+  function mergeHook(parentValue, childValue) {
+    // 声明周期的合并
+    if (childValue) {
+      if (parentValue) {
+        return parentValue.concat(childValue); // 爸爸和儿子进行拼接
+      } else {
+        return [childValue]; // 儿子需要转换成数组
+      }
+    } else {
+        return parentValue; //如果没儿子不合并了 采用父亲的
+      }
+  }
+
+  LIFECYCLE_HOOKS.forEach(function (hook) {
+    strategies[hook] = mergeHook;
+  });
+  function mergeOptions(parent, child) {
+    //遍历父亲,可能是父亲有 儿子没有
+    var options = {};
+
+    for (var key in parent) {
+      //父亲和儿子都有在这就全部处理了
+      mergeField(key);
+    } // console.log('======');
+    // console.log(options);
+    // 儿子有父亲没有
+
+
+    for (var _key in child) {
+      if (!parent.hasOwnProperty(_key)) {
+        // const element = child[key];
+        mergeField(_key);
+      }
+    } // console.log('======');
+    // console.log(options);
+
+
+    function mergeField(key) {
+      //合并字段
+      //根据key 不同的策略来合并
+      if (strategies[key]) {
+        options[key] = strategies[key](parent[key], child[key]);
+      } else {
+        // 默认合并
+        options[key] = child[key];
+      }
+    }
+
+    console.log('options', options);
+    return options;
+  }
+
+  function initGlobalApi(Vue) {
+    Vue.options = {}; //Vue.component Vue.directive
+
+    Vue.mixin = function (mixin) {
+      //先只考虑生命周期
+      this.options = mergeOptions(this.options, mixin); //合并options
+      // console.log(this.options, '---options----');
+    }; // 用户new Vue({created()}{})
+
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -347,15 +431,15 @@
     //html模板 => render函数
     //1.将html代码转换成AST语法树(可以用AST数去描述语言本身) 
     //ps:虚拟dom(虚拟dom是用对象来描述节点的)
-    var ast = parseHTML(template);
-    console.log(ast); //2.优化静态节点
+    var ast = parseHTML(template); // console.log(ast);
+    //2.优化静态节点
     // 3.通过这颗树  重新生成代码
 
-    var code = generate(ast);
-    console.log(code); //4.将字符串转换成render函数  限制取值范围 通过with来进行取值  稍后我们调用render函数就可以通过改变this 让这个函数内部取到成果了
+    var code = generate(ast); // console.log(code);
+    //4.将字符串转换成render函数  限制取值范围 通过with来进行取值  稍后我们调用render函数就可以通过改变this 让这个函数内部取到成果了
 
-    var render = new Function("with(this){return ".concat(code, "}"));
-    console.log(render);
+    var render = new Function("with(this){return ".concat(code, "}")); // console.log(render);
+
     return render;
   }
 
@@ -430,6 +514,16 @@
     // 调用render方法去渲染el属性
     //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
     vm._update(vm._render());
+  } // callHook(vm,'beforeCreate')
+
+  function callHook(vm, hook) {
+    var handlers = vm.$options[hook]; // vm.$options.create = [a1,a2,a3]
+
+    if (handlers) {
+      for (var i = 0; i < handlers.length; i++) {
+        handlers[i].call(vm); //更改生命周期中的this
+      }
+    }
   }
 
   // 切片编程
@@ -541,17 +635,6 @@
     // $set 对象实际上就是 Object.defineProperty
   }
 
-  function proxy(vm, data, key) {
-    Object.defineProperty(vm, key, {
-      get: function get() {
-        return vm[data][key];
-      },
-      set: function set(newValue) {
-        vm[data][key] = newValue;
-      }
-    });
-  }
-
   function initState(vm) {
     var options = vm.$options;
 
@@ -586,10 +669,15 @@
 
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
-      var vm = this;
-      vm.$options = options; //初始化状态
+      var vm = this; // 写成 vm.constructor.options 是为了防止子组件的options一起被混合
 
-      initState(vm); //初始化事件...
+      vm.$options = mergeOptions(vm.constructor.options, options); //需要将用户自定义的options和全局的options做合并
+      //初始化之前调用beforeCreate
+
+      callHook(vm, 'beforeCreate'); //初始化状态
+
+      initState(vm);
+      callHook(vm, 'created'); //初始化事件...
       //如果有el属性 则表示需要渲染模板
 
       if (vm.$options.el) {
@@ -616,10 +704,12 @@
 
         var render = compileToFunctions(template);
         options.render = render;
-      } //需要挂载这个组件
+      }
 
+      callHook(vm, 'beforeMount'); //需要挂载这个组件
 
       mountComponent(vm);
+      callHook(vm, 'beforeMounted');
     };
   }
 
@@ -678,7 +768,8 @@
   function Vue(options) {
     this._init(options); // 初始化操作
 
-  } //Vue初始化方法
+  } //原型方法
+  //Vue初始化方法
 
 
   initMixin(Vue); // init方法
@@ -688,6 +779,9 @@
   //渲染
 
   renderMixin(Vue); // _render
+  // 静态方法  Vue.component Vue.directive Vue.extends Vue.mixin
+
+  initGlobalApi(Vue);
 
   return Vue;
 

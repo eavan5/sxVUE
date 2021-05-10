@@ -13,6 +13,16 @@
   </div>
   <script src="/dist/vue.js"></script>
   <script>
+    Vue.mixin({
+      created(){
+        console.log('created');
+      }
+    })
+    Vue.mixin({
+      created(){
+        console.log('created2');
+      }
+    })
     const vm = new Vue({
       el:'#app',
       data(){
@@ -26,6 +36,9 @@
           c:[1,{a:1},3,4]
         }
       },
+      created(){ //生命周期 实际上就是回调函数, 先订阅号 然后后面会触发该方法
+        console.log(666);
+      }
       // render(h){
       //   return h('div',{id:'a'},'hello')
       // }
