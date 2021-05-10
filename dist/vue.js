@@ -360,6 +360,7 @@
   }
 
   function patch(oldVnode, vnode) {
+    // oldVnode => id#app vnode => 我们根据模板产生的虚拟dom
     //将虚拟节点转换成真实节点
     console.log(oldVnode, vnode);
     var el = createElm(vnode); //产生真实的dom
@@ -380,7 +381,9 @@
 
     if (typeof tag === 'string') {
       //创建元素 放到vnode.el上
-      vnode.el = document.createElement(tag);
+      vnode.el = document.createElement(tag); // 只有元素才有属性
+
+      updateProperties(vnode);
       children.forEach(function (child) {
         //遍历儿子  将儿子渲染后的结果扔到父亲中
         vnode.el.appendChild(createElm(child));
@@ -391,11 +394,34 @@
     }
 
     return vnode.el;
+  }
+
+  function updateProperties(vnode) {
+    var el = vnode.el;
+    var newProps = vnode.data || {};
+
+    for (var key in newProps) {
+      if (Object.hasOwnProperty.call(newProps, key)) {
+        var element = newProps[key];
+
+        if (key === 'style') {
+          // {color:red}
+          for (var key2 in newProps.style) {
+            if (Object.hasOwnProperty.call(newProps.style, key2)) {
+              el.style[key2] = newProps.style[key2];
+            }
+          }
+        } else if (key === 'class') {
+          el.className = el["class"];
+        } else {
+          el.setAttribute(key, element);
+        }
+      }
+    }
   } // vue渲染流程 -> 先初始化数据 -> 将魔棒进行编译 => render函数 -> 生成虚拟节点 -> 生成真实节点 -> 扔到dom上去
 
   function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
-      console.log(vnode, '--------vnode-');
       var vm = this;
       patch(vm.$el, vnode);
     };
@@ -506,10 +532,13 @@
   function observe(data) {
     // Object.defineProperty实际上也是可以对数组进行监控的，但是由于监控数组会去递归数组，会造成性能问题，所以改用数组原型重写的方法
     // 如果不是对象直接return
-    if (_typeof(data) !== 'object' || data === null) return; //如果已经被监听,则return
+    if (_typeof(data) !== 'object' || data === null) return data; //如果已经被监听,则return
 
-    if (data.__ob__) return;
-    return new Observer(data);
+    if (data.__ob__) return data;
+    return new Observer(data); // 只观测存在的属性 
+    // 数组中更改索引和长度 无法被监控
+    // $set 数组实际上就是 splice
+    // $set 对象实际上就是 Object.defineProperty
   }
 
   function proxy(vm, data, key) {
@@ -552,7 +581,7 @@
       }
     }
 
-    observe(data);
+    observe(data); // 让这个对象重新定义set 和 get
   }
 
   function initMixin(Vue) {
@@ -582,6 +611,7 @@
         if (!template && el) {
           template = el.outerHTML;
         } // 将模板编译成render函数
+        //1.处理模板变成ast数 2.标记静态节点 3.重新code生成(return的字符串) 4.通过new Function + with 生成render函数 
 
 
         var render = compileToFunctions(template);
@@ -597,7 +627,8 @@
     Vue.prototype._c = function () {
       //创建虚拟dom元素
       return createElement.apply(void 0, arguments);
-    };
+    }; //当结果是对象时,会对这个对象取值
+
 
     Vue.prototype._s = function (val) {
       // stringify
@@ -614,7 +645,6 @@
       var vm = this;
       var render = vm.$options.render;
       var vnode = render.call(vm);
-      console.log(vnode);
       return vnode;
     };
   }
@@ -631,7 +661,7 @@
 
   function createTextVnode(text) {
     return vnode(undefined, undefined, undefined, undefined, text);
-  } //用来产生虚拟dom的
+  } //用来产生虚拟dom的,用来操作正式dom消耗性能(真实dom有几百个属性)
 
 
   function vnode(tag, data, key, children, text) {
@@ -651,11 +681,13 @@
   } //Vue初始化方法
 
 
-  initMixin(Vue); //混合生命周期
+  initMixin(Vue); // init方法
+  //混合生命周期
 
-  lifecycleMixin(Vue); //渲染
+  lifecycleMixin(Vue); // _update
+  //渲染
 
-  renderMixin(Vue);
+  renderMixin(Vue); // _render
 
   return Vue;
 

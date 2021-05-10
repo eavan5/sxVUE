@@ -43,7 +43,7 @@ function initData(vm) {
     }
   }
 
-  observe(data)
+  observe(data) // 让这个对象重新定义set 和 get
 }
 
 function initComputed() {

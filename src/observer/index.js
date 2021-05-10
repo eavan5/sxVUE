@@ -52,8 +52,15 @@ export function observe(data) {
 
 
   // 如果不是对象直接return
-  if (typeof data !== 'object' || data === null) return
+  if (typeof data !== 'object' || data === null) return data
   //如果已经被监听,则return
-  if (data.__ob__) return
+  if (data.__ob__) return data
   return new Observer(data)
+
+  // 只观测存在的属性 
+  // 数组中更改索引和长度 无法被监控
+  // $set 数组实际上就是 splice
+  // $set 对象实际上就是 Object.defineProperty
+
+
 }
