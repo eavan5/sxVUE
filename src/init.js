@@ -30,7 +30,6 @@ export function initMixin(Vue) {
     const vm = this
     const options = vm.$options
     el = document.querySelector(el)
-    vm.$el = el
     if (!options.render) {
       //没有render方法,则将template转换成render方法
       let template = options.template
@@ -38,15 +37,12 @@ export function initMixin(Vue) {
         template = el.outerHTML
       }
       // 将模板编译成render函数
-      //1.处理模板变成ast数 2.标记静态节点 3.重新code生成(return的字符串) 4.通过new Function + with 生成render函数 
+      //1.处理模板变成ast语法树 2.标记静态节点 3.重新code生成(return的字符串) 4.通过new Function + with 生成render函数 
       const render = compileToFunctions(template)
       options.render = render
     }
-    callHook(vm, 'beforeMount')
-
     //需要挂载这个组件
     mountComponent(vm, el)
 
-    callHook(vm, 'beforeMounted')
   }
 }

@@ -443,10 +443,87 @@
     return render;
   }
 
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.subs = [];
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        this.subs.push(Dep.target);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      }
+    }]);
+
+    return Dep;
+  }();
+
+  Dep.target = null;
+  function pushTarget(watcher) {
+    Dep.target = watcher; //保留watcher
+  }
+  function popTarget(watcher) {
+    Dep.target = null; //将变量删除
+  }
+  // dep可以存多个watcher  vm.$watcher('name')
+  // 一个watcher可以对应多个dep
+
+  var id = 0;
+
+  var Watcher = /*#__PURE__*/function () {
+    //exprOrFn vm._update(vm._render())
+    function Watcher(vm, exprOrFn, cb, options) {
+      _classCallCheck(this, Watcher);
+
+      this.vm = vm;
+      this.exprOrFn = exprOrFn;
+      this.cb = cb;
+      this.options = options;
+      this.id = id++; //watcher的唯一标识
+
+      if (typeof exprOrFn === 'function') {
+        this.getter = exprOrFn;
+      }
+
+      this.get(); //默认调用
+    }
+
+    _createClass(Watcher, [{
+      key: "get",
+      value: function get() {
+        pushTarget(this); //当前watcher的实例
+
+        this.getter(); //调用exprOrFn  渲染页面 取值(执行了get方法)  调用render方法  with(vm){_v(msg)}
+
+        popTarget();
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        this.get();
+      }
+    }]);
+
+    return Watcher;
+  }();
+  // 1.先把这个渲染watcher 放到了Dep.target属性上
+  // 2.开始渲染,取值的时候会调用get方法 需要让这个属性的dep存储当前的watcher
+  // 3.页面上所需要的属性都会将这个watcher存在自己的dep中
+  // 4.等待属性更新了调用set方法 就重新调用渲染逻辑 通知自己存储的watcher来更新
+
   function patch(oldVnode, vnode) {
     // oldVnode => id#app vnode => 我们根据模板产生的虚拟dom
     //将虚拟节点转换成真实节点
-    console.log(oldVnode, vnode);
+    // console.log(oldVnode, vnode);
     var el = createElm(vnode); //产生真实的dom
 
     var parentElm = oldVnode.parentNode; //获取老的app的父亲 => body
@@ -454,6 +531,8 @@
     parentElm.insertBefore(el, oldVnode.nextSibling); //当前的真实元素插入到app的后面
 
     parentElm.removeChild(oldVnode); //删除老的节点
+
+    return el;
   }
 
   function createElm(vnode) {
@@ -506,14 +585,26 @@
 
   function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
-      var vm = this;
-      patch(vm.$el, vnode);
+      var vm = this; //用新的创建的元素 替换掉老的vm.$el
+
+      vm.$el = patch(vm.$el, vnode);
     };
   }
   function mountComponent(vm, el) {
-    // 调用render方法去渲染el属性
-    //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
-    vm._update(vm._render());
+    vm.$el = el; // 调用render方法去渲染el属性
+
+    callHook(vm, 'beforeMount'); //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
+
+    var updateComponent = function updateComponent() {
+      vm._update(vm._render());
+    }; //这个watcher是用于渲染的,目前没有别的功能 调用updateComponent
+
+
+    new Watcher(vm, updateComponent, function () {
+      callHook(vm, 'beforeUpdate');
+    }, true); //要把属性和watcher绑定在一起
+
+    callHook(vm, 'mounted');
   } // callHook(vm,'beforeCreate')
 
   function callHook(vm, hook) {
@@ -608,17 +699,29 @@
   function defineReactive(data, key, value) {
     observe(value); // 递归下去
 
+    var dep = new Dep(); //每个属性都有一个dep
+    //当页面取值的时候 说明这个值用来渲染了,将这个watcher和这个属性对应起来
+
     Object.defineProperty(data, key, {
       get: function get() {
+        //依赖收集
         console.log('获取值');
+
+        if (Dep.target) {
+          //让这个属性记住这个watcher
+          dep.depend();
+        }
+
         return value;
       },
       set: function set(newValue) {
+        //依赖更新
         console.log('设置值');
         if (newValue === value) return;
         observe(newValue); //如果用户设置的值还是一个对象,继续观测
 
         value = newValue;
+        dep.notify(); //重新渲染
       }
     });
   }
@@ -690,7 +793,6 @@
       var vm = this;
       var options = vm.$options;
       el = document.querySelector(el);
-      vm.$el = el;
 
       if (!options.render) {
         //没有render方法,则将template转换成render方法
@@ -699,17 +801,15 @@
         if (!template && el) {
           template = el.outerHTML;
         } // 将模板编译成render函数
-        //1.处理模板变成ast数 2.标记静态节点 3.重新code生成(return的字符串) 4.通过new Function + with 生成render函数 
+        //1.处理模板变成ast语法树 2.标记静态节点 3.重新code生成(return的字符串) 4.通过new Function + with 生成render函数 
 
 
         var render = compileToFunctions(template);
         options.render = render;
-      }
+      } //需要挂载这个组件
 
-      callHook(vm, 'beforeMount'); //需要挂载这个组件
 
-      mountComponent(vm);
-      callHook(vm, 'beforeMounted');
+      mountComponent(vm, el);
     };
   }
 

@@ -8,7 +8,7 @@
 </head>
 <body>
  <div id="app" style="color:red">
-   hello {{abc}}{{abc}}world
+   hello {{abc}}{{a}}world
     <span>hello</span>
   </div>
   <script src="/dist/vue.js"></script>
@@ -51,6 +51,13 @@
     //2.如果没有传render就会去查找template 
     //3.找当前el置顶的元素中的内容来当template 渲染成为render
     //AST解析template 变成 render函数
+
+    vm.abc = 333 
+    vm._update(vm._render())
+
+    //重新调用_render  然后再调用_update
+    //vue更新车路是以组件为单位的,给每个组件都增加了一个watch,属性变化后,会重新调用watcher(渲染watcher)
+
   </script>
 </body>
 </html>

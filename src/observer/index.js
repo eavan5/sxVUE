@@ -1,4 +1,5 @@
 import { arrayMethods } from './array'
+import Dep from './dep'
 class Observer {
   constructor(data) {
     //使用defineProperty重新定义属性
@@ -32,16 +33,25 @@ class Observer {
 
 function defineReactive(data, key, value) {
   observe(value) // 递归下去
+
+  let dep = new Dep()  //每个属性都有一个dep
+
+  //当页面取值的时候 说明这个值用来渲染了,将这个watcher和这个属性对应起来
   Object.defineProperty(data, key, {
-    get() {
+    get() { //依赖收集
       console.log('获取值');
+      if (Dep.target) {  //让这个属性记住这个watcher
+        dep.depend()
+      }
       return value
     },
-    set(newValue) {
+    set(newValue) {  //依赖更新
       console.log('设置值');
       if (newValue === value) return
       observe(newValue)  //如果用户设置的值还是一个对象,继续观测
       value = newValue
+
+      dep.notify() //重新渲染
     }
   })
 
