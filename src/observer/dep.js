@@ -1,9 +1,16 @@
+let id = 0
 class Dep {
   constructor() {
     this.subs = []
+    this.id = id++
   }
   depend() {
-    this.subs.push(Dep.target)
+    // 我们希望这个watcher 也可以放dep (比如计算属性)
+    Dep.target.addDep(this) //让dep记住watcher的同时让watcher记住dep
+    // this.subs.push(Dep.target)
+  }
+  addSub(watcher) {
+    this.subs.push(watcher)
   }
   notify() {
     this.subs.forEach(watcher => watcher.update())

@@ -443,17 +443,27 @@
     return render;
   }
 
+  var id$1 = 0;
+
   var Dep = /*#__PURE__*/function () {
     function Dep() {
       _classCallCheck(this, Dep);
 
       this.subs = [];
+      this.id = id$1++;
     }
 
     _createClass(Dep, [{
       key: "depend",
       value: function depend() {
-        this.subs.push(Dep.target);
+        // 我们希望这个watcher 也可以放dep (比如计算属性)
+        Dep.target.addDep(this); //让dep记住watcher的同时让watcher记住dep
+        // this.subs.push(Dep.target)
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
       }
     }, {
       key: "notify",
@@ -490,6 +500,10 @@
       this.options = options;
       this.id = id++; //watcher的唯一标识
 
+      this.deps = []; //记录多个dep依赖
+
+      this.depsId = new Set();
+
       if (typeof exprOrFn === 'function') {
         this.getter = exprOrFn;
       }
@@ -498,8 +512,21 @@
     }
 
     _createClass(Watcher, [{
+      key: "addDep",
+      value: function addDep(dep) {
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.depsId.add(id);
+          this.deps.push(dep);
+          dep.addSub(this);
+        } //dep去重
+
+      }
+    }, {
       key: "get",
       value: function get() {
+        // Dep.target = watcher
         pushTarget(this); //当前watcher的实例
 
         this.getter(); //调用exprOrFn  渲染页面 取值(执行了get方法)  调用render方法  with(vm){_v(msg)}
@@ -596,13 +623,15 @@
     callHook(vm, 'beforeMount'); //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
 
     var updateComponent = function updateComponent() {
-      vm._update(vm._render());
+      vm._update(vm._render()); //渲染和更新逻辑
+
     }; //这个watcher是用于渲染的,目前没有别的功能 调用updateComponent
 
 
-    new Watcher(vm, updateComponent, function () {
+    var watcher = new Watcher(vm, updateComponent, function () {
       callHook(vm, 'beforeUpdate');
-    }, true); //要把属性和watcher绑定在一起
+    }, true);
+    console.log('watcher', watcher); //要把属性和watcher绑定在一起
 
     callHook(vm, 'mounted');
   } // callHook(vm,'beforeCreate')

@@ -17,14 +17,14 @@ export function mountComponent(vm, el) {
   //先调用render方法创建虚拟节点 render ,再将虚拟节点渲染到页面上 update
 
   let updateComponent = () => {
-    vm._update(vm._render())
+    vm._update(vm._render())  //渲染和更新逻辑
   }
 
   //这个watcher是用于渲染的,目前没有别的功能 调用updateComponent
   let watcher = new Watcher(vm, updateComponent, () => {
     callHook(vm, 'beforeUpdate')
   }, true)
-
+  console.log('watcher', watcher);
   //要把属性和watcher绑定在一起
 
   callHook(vm, 'mounted')
