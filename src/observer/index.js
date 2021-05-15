@@ -2,6 +2,7 @@ import { arrayMethods } from './array'
 import Dep from './dep'
 class Observer {
   constructor(data) {
+    this.dep = new Dep // value = {}  value = []
     //使用defineProperty重新定义属性
     //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
     Object.defineProperty(data, '__ob__', {
@@ -32,7 +33,8 @@ class Observer {
 }
 
 function defineReactive(data, key, value) {
-  observe(value) // 递归下去
+  //获取到数组对应的dep
+  let childDep = observe(value) // 递归下去
 
   let dep = new Dep()  //每个属性都有一个dep
 
@@ -42,6 +44,11 @@ function defineReactive(data, key, value) {
       console.log('获取值');
       if (Dep.target) {  //让这个属性记住这个watcher
         dep.depend()
+        if (childDep) { // 可能是数组也可能是对象
+          // 默认给数组增加了一个dep属性,当对这个数组对象取值的时候
+          console.log(childDep);
+          childDep.dep.depend() //将数组的对应的依赖watcher存起来了
+        }
       }
       return value
     },
@@ -61,8 +68,8 @@ export function observe(data) {
   // Object.defineProperty实际上也是可以对数组进行监控的，但是由于监控数组会去递归数组，会造成性能问题，所以改用数组原型重写的方法
 
 
-  // 如果不是对象直接return
-  if (typeof data !== 'object' || data === null) return data
+  // 如果不是对象或函数直接return
+  if (typeof data !== 'object' || data === null) return
   //如果已经被监听,则return
   if (data.__ob__) return data
   return new Observer(data)

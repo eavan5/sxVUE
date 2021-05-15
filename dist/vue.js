@@ -658,6 +658,8 @@
       }
 
       //这里的this就是observer的data
+      // 当调用数组我们劫持后的这七个方法 页面应该更新
+      // 需要知道数组对应哪个dep
       console.log('数组方法被调用了');
       var result = oldArrayProtoMethods[method].apply(this, arguments);
       var inserted;
@@ -677,6 +679,8 @@
 
 
       if (inserted) ob.serveArray(inserted);
+      ob.dep.notify(); //通知数组去更新
+
       return result;
     };
   });
@@ -685,8 +689,10 @@
     function Observer(data) {
       _classCallCheck(this, Observer);
 
+      this.dep = new Dep(); // value = {}  value = []
       //使用defineProperty重新定义属性
       //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
+
       Object.defineProperty(data, '__ob__', {
         enumerable: false,
         //不能被枚举,不能被循环出来
@@ -726,7 +732,8 @@
   }();
 
   function defineReactive(data, key, value) {
-    observe(value); // 递归下去
+    //获取到数组对应的dep
+    var childDep = observe(value); // 递归下去
 
     var dep = new Dep(); //每个属性都有一个dep
     //当页面取值的时候 说明这个值用来渲染了,将这个watcher和这个属性对应起来
@@ -739,6 +746,13 @@
         if (Dep.target) {
           //让这个属性记住这个watcher
           dep.depend();
+
+          if (childDep) {
+            // 可能是数组也可能是对象
+            // 默认给数组增加了一个dep属性,当对这个数组对象取值的时候
+            console.log(childDep);
+            childDep.dep.depend(); //将数组的对应的依赖watcher存起来了
+          }
         }
 
         return value;
@@ -757,8 +771,8 @@
 
   function observe(data) {
     // Object.defineProperty实际上也是可以对数组进行监控的，但是由于监控数组会去递归数组，会造成性能问题，所以改用数组原型重写的方法
-    // 如果不是对象直接return
-    if (_typeof(data) !== 'object' || data === null) return data; //如果已经被监听,则return
+    // 如果不是对象或函数直接return
+    if (_typeof(data) !== 'object' || data === null) return; //如果已经被监听,则return
 
     if (data.__ob__) return data;
     return new Observer(data); // 只观测存在的属性 

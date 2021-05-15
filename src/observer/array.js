@@ -17,6 +17,8 @@ let methods = [
 ]
 methods.forEach(method => {
   arrayMethods[method] = function (...args) {  //这里的this就是observer的data
+    // 当调用数组我们劫持后的这七个方法 页面应该更新
+    // 需要知道数组对应哪个dep
     console.log('数组方法被调用了');
     const result = oldArrayProtoMethods[method].apply(this, arguments)
     let inserted
@@ -33,6 +35,8 @@ methods.forEach(method => {
     }
     //如果当前的inserted有值 则继续检测
     if (inserted) ob.serveArray(inserted)
+
+    ob.dep.notify() //通知数组去更新
     return result
   }
 })

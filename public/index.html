@@ -8,7 +8,7 @@
 </head>
 <body>
  <div id="app" style="color:red">
-   hello {{b}}world
+   hello {{c}}world
     <span>hello</span>
   </div>
   <script src="/dist/vue.js"></script>
@@ -26,6 +26,7 @@
     const vm = new Vue({
       el:'#app',
       data(){
+        //通过数组更新索引和长度更新是无效的
         return {
           a:111,
           abc:666,
@@ -58,8 +59,16 @@
     //重新调用_render  然后再调用_update
     //vue更新车路是以组件为单位的,给每个组件都增加了一个watch,属性变化后,会重新调用watcher(渲染watcher)
     setTimeout(() => {
-      vm.a = 999
+      vm.c= 222
     }, 100);
+
+    // 1.取数组的时候会调用数组的get方法 我希望让当前的数组记得这个渲染watcher
+    // 2.我给所有的对象类型都增加一个dep属性
+    // 3.当页面对arr取值时 我就让数组的dep记住这个watcher
+    // 4.当页面更新时
+
+
+    // 等我更新数组时 push shift 方法时 找到数组对应的watcher来更新
   </script>
 </body>
 </html>
