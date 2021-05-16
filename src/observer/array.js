@@ -34,7 +34,7 @@ methods.forEach(method => {
         break;
     }
     //如果当前的inserted有值 则继续检测
-    if (inserted) ob.serveArray(inserted)
+    if (inserted) ob.observeArray(inserted)
 
     ob.dep.notify() //通知数组去更新
     return result

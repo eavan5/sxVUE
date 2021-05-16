@@ -59,7 +59,15 @@
     //重新调用_render  然后再调用_update
     //vue更新车路是以组件为单位的,给每个组件都增加了一个watch,属性变化后,会重新调用watcher(渲染watcher)
     setTimeout(() => {
-      vm.c= 222
+      // 批处理 => vue异步更新  更新数据之后不能立即拿到最新的节点
+      // nextTrick  等待页面更新好了之后再获取最终dom
+      vm.c.push(2)
+      vm.c.push(2)
+      vm.c.push(2)
+      vm.c.push(2)
+      vm.c.push(2)
+      vm.c.push(2)
+  
     }, 100);
 
     // 1.取数组的时候会调用数组的get方法 我希望让当前的数组记得这个渲染watcher

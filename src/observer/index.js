@@ -2,7 +2,7 @@ import { arrayMethods } from './array'
 import Dep from './dep'
 class Observer {
   constructor(data) {
-    this.dep = new Dep // value = {}  value = []
+    this.dep = new Dep() // value = {}  value = []
     //使用defineProperty重新定义属性
     //判断一个对象是否被观察到,则看这个属性有没有__ob__属性
     Object.defineProperty(data, '__ob__', {

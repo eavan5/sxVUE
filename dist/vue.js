@@ -534,14 +534,52 @@
         popTarget();
       }
     }, {
+      key: "run",
+      value: function run() {
+        console.log(111);
+        this.get(); //渲染逻辑
+      }
+    }, {
       key: "update",
       value: function update() {
-        this.get();
+        //这里不要每次都调用get方法  get方法会重新渲染页面
+        queueWatcher(this); // this.get() //重新渲染
       }
     }]);
 
     return Watcher;
   }();
+
+  var queue = []; //将需要批量更新的watcher 春发到一个队列中 收好让watcher执行
+
+  var has = {};
+  var pending = false;
+
+  function queueWatcher(watcher) {
+    var id = watcher.id; // 对watcher进行去重
+
+    if (has[id] == null) {
+      queue.push(watcher); // 并且将watcher存到队列中
+
+      has[id] = true;
+    }
+
+    if (!pending) {
+      //如果没有清空 就不要开定时器呢
+      //等待所有同步代码执行完毕后再执行
+      setTimeout(function () {
+        queue.forEach(function (watcher) {
+          return watcher.run();
+        });
+        queue = []; // 清空watcher队列为了下次使用
+
+        has = {}; //清空标识的id
+
+        pending = false; // 还原pending
+      }, 0);
+      pending = true;
+    }
+  }
   // 1.先把这个渲染watcher 放到了Dep.target属性上
   // 2.开始渲染,取值的时候会调用get方法 需要让这个属性的dep存储当前的watcher
   // 3.页面上所需要的属性都会将这个watcher存在自己的dep中
@@ -678,7 +716,7 @@
       } //如果当前的inserted有值 则继续检测
 
 
-      if (inserted) ob.serveArray(inserted);
+      if (inserted) ob.observeArray(inserted);
       ob.dep.notify(); //通知数组去更新
 
       return result;
