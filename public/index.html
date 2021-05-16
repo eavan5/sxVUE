@@ -39,6 +39,9 @@
       },
       created(){ //生命周期 实际上就是回调函数, 先订阅号 然后后面会触发该方法
         console.log(666);
+      },
+      updated(){ 
+        console.log('updated');
       }
       // render(h){
       //   return h('div',{id:'a'},'hello')
@@ -67,7 +70,11 @@
       vm.c.push(2)
       vm.c.push(2)
       vm.c.push(2)
-  
+      console.log(vm.$el.innerHTML,'11111');
+      vm.$nextTrick(()=>{
+      console.log(vm.$el.innerHTML,'222');
+        
+      })
     }, 100);
 
     // 1.取数组的时候会调用数组的get方法 我希望让当前的数组记得这个渲染watcher

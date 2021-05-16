@@ -76,6 +76,52 @@
     console.log('options', options);
     return options;
   }
+  var callbacks = [];
+
+  function flushCallbacks() {
+    while (callbacks.length) {
+      // 让nextTrick中传入的方法依次执行
+      var cb = callbacks.pop();
+      cb();
+    }
+
+    pending$1 = false;
+    callbacks = [];
+  }
+
+  var timerFunc;
+
+  if (Promise) {
+    timerFunc = function timerFunc() {
+      Promise.resolve().then(flushCallbacks); // 异步处理更新
+    };
+  } else if (MutationObserver) {
+    // 可以监控dom的变化,监控完毕之后是异步更新,是一个微任务
+    var observe$1 = new MutationObserver(flushCallbacks);
+    var textNode = document.createTextNode(1); // 先创建一个文本节点
+
+    observe$1.observe(textNode, {
+      characterData: true
+    }); //观测节点的内容
+
+    timerFunc = function timerFunc() {
+      text.textContent = 2; // 文本中的内容改成2
+    };
+  } else if (serImmediate) ;
+
+  var pending$1 = false;
+  function nextTrick(cb) {
+    // 因为内部会调用nextTrick 用户也会调用 但是异步只需要一次
+    callbacks.push(cb);
+
+    if (!pending$1) {
+      // vue3里面的nextTrick原理就是promise.then 没有做兼容性处理
+      timerFunc(); //这个方法就是异步方法  做了兼容处理了
+      // Promise.resolve().then()
+
+      pending$1 = true;
+    }
+  }
 
   function initGlobalApi(Vue) {
     Vue.options = {}; //Vue.component Vue.directive
@@ -550,6 +596,18 @@
     return Watcher;
   }();
 
+  function flushSchedulerQueue() {
+    queue.forEach(function (watcher) {
+      watcher.run();
+      watcher.cb();
+    });
+    queue = []; // 清空watcher队列为了下次使用
+
+    has = {}; //清空标识的id
+
+    pending = false; // 还原pending
+  }
+
   var queue = []; //将需要批量更新的watcher 春发到一个队列中 收好让watcher执行
 
   var has = {};
@@ -567,16 +625,7 @@
     if (!pending) {
       //如果没有清空 就不要开定时器呢
       //等待所有同步代码执行完毕后再执行
-      setTimeout(function () {
-        queue.forEach(function (watcher) {
-          return watcher.run();
-        });
-        queue = []; // 清空watcher队列为了下次使用
-
-        has = {}; //清空标识的id
-
-        pending = false; // 还原pending
-      }, 0);
+      nextTrick(flushSchedulerQueue);
       pending = true;
     }
   }
@@ -667,7 +716,7 @@
 
 
     var watcher = new Watcher(vm, updateComponent, function () {
-      callHook(vm, 'beforeUpdate');
+      callHook(vm, 'updated');
     }, true);
     console.log('watcher', watcher); //要把属性和watcher绑定在一起
 
@@ -851,6 +900,12 @@
     observe(data); // 让这个对象重新定义set 和 get
   }
 
+  function stateMixin(Vue) {
+    Vue.prototype.$nextTrick = function (cb) {
+      nextTrick(cb);
+    };
+  }
+
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
       var vm = this; // 写成 vm.constructor.options 是为了防止子组件的options一起被混合
@@ -960,7 +1015,8 @@
   //渲染
 
   renderMixin(Vue); // _render
-  // 静态方法  Vue.component Vue.directive Vue.extends Vue.mixin
+
+  stateMixin(Vue); // 静态方法  Vue.component Vue.directive Vue.extends Vue.mixin
 
   initGlobalApi(Vue);
 

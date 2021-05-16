@@ -1,6 +1,6 @@
 
 import { observe } from './observer/index'
-import { proxy } from './util'
+import { nextTrick, proxy } from './util'
 export function initState(vm) {
   const options = vm.$options;
   if (options.props) {
@@ -52,4 +52,10 @@ function initComputed() {
 
 function initWatch() {
 
+}
+
+export function stateMixin(Vue) {
+  Vue.prototype.$nextTrick = function (cb) {
+    nextTrick(cb)
+  }
 }

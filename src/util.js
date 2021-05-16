@@ -77,3 +77,37 @@ export function mergeOptions(parent, child) {
   console.log('options', options);
   return options
 }
+let callbacks = []
+function flushCallbacks() {
+  while (callbacks.length) { // 让nextTrick中传入的方法依次执行
+    let cb = callbacks.pop()
+    cb()
+  }
+  pending = false
+  callbacks = []
+}
+let timerFunc;
+if (Promise) {
+  timerFunc = () => {
+    Promise.resolve().then(flushCallbacks) // 异步处理更新
+  }
+} else if (MutationObserver) { // 可以监控dom的变化,监控完毕之后是异步更新,是一个微任务
+  let observe = new MutationObserver(flushCallbacks)
+  let textNode = document.createTextNode(1) // 先创建一个文本节点
+  observe.observe(textNode, { characterData: true }) //观测节点的内容
+  timerFunc = () => {
+    text.textContent = 2  // 文本中的内容改成2
+  }
+} else if (serImmediate) { // IE中的一个API
+
+}
+let pending = false
+export function nextTrick(cb) {  // 因为内部会调用nextTrick 用户也会调用 但是异步只需要一次
+  callbacks.push(cb)
+  if (!pending) {
+    // vue3里面的nextTrick原理就是promise.then 没有做兼容性处理
+    timerFunc() //这个方法就是异步方法  做了兼容处理了
+    // Promise.resolve().then()
+    pending = true
+  }
+}

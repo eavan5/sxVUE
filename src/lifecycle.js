@@ -22,7 +22,7 @@ export function mountComponent(vm, el) {
 
   //这个watcher是用于渲染的,目前没有别的功能 调用updateComponent
   let watcher = new Watcher(vm, updateComponent, () => {
-    callHook(vm, 'beforeUpdate')
+    callHook(vm, 'updated')
   }, true)
   console.log('watcher', watcher);
   //要把属性和watcher绑定在一起

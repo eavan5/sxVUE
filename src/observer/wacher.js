@@ -1,3 +1,4 @@
+import { nextTrick } from "../util";
 import { popTarget, pushTarget } from "./dep";
 
 let id = 0
@@ -41,6 +42,13 @@ class Watcher {
     // this.get() //重新渲染
   }
 }
+function flushSchedulerQueue() {
+  queue.forEach(watcher => { watcher.run(); watcher.cb() })
+  queue = []  // 清空watcher队列为了下次使用
+  has = {} //清空标识的id
+  pending = false // 还原pending
+}
+
 let queue = [] //将需要批量更新的watcher 春发到一个队列中 收好让watcher执行
 let has = {}
 let pending = false
@@ -52,12 +60,7 @@ function queueWatcher(watcher) {
   }
   if (!pending) { //如果没有清空 就不要开定时器呢
     //等待所有同步代码执行完毕后再执行
-    setTimeout(() => {
-      queue.forEach(watcher => watcher.run())
-      queue = []  // 清空watcher队列为了下次使用
-      has = {} //清空标识的id
-      pending = false // 还原pending
-    }, 0)
+    nextTrick(flushSchedulerQueue)
     pending = true
   }
 
