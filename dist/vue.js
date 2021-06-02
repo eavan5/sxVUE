@@ -19,11 +19,11 @@
 
   strategies.data = function (parentVal, childVal) {
     return childVal; //这里应该有合并data的策略
-  };
+  }; // strategies.computed = function () {
+  // }
+  // strategies.watch = function () {
+  // }
 
-  strategies.computed = function () {};
-
-  strategies.watch = function () {};
 
   function mergeHook(parentValue, childValue) {
     // 声明周期的合并
@@ -42,6 +42,7 @@
     strategies[hook] = mergeHook;
   });
   function mergeOptions(parent, child) {
+    // console.log(parent);
     //遍历父亲,可能是父亲有 儿子没有
     var options = {};
 
@@ -73,7 +74,6 @@
       }
     }
 
-    console.log('options', options);
     return options;
   }
   var callbacks = [];
@@ -134,6 +134,44 @@
 
   }
 
+  function ownKeys(object, enumerableOnly) {
+    var keys = Object.keys(object);
+
+    if (Object.getOwnPropertySymbols) {
+      var symbols = Object.getOwnPropertySymbols(object);
+
+      if (enumerableOnly) {
+        symbols = symbols.filter(function (sym) {
+          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+        });
+      }
+
+      keys.push.apply(keys, symbols);
+    }
+
+    return keys;
+  }
+
+  function _objectSpread2(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i] != null ? arguments[i] : {};
+
+      if (i % 2) {
+        ownKeys(Object(source), true).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else if (Object.getOwnPropertyDescriptors) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+      } else {
+        ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+    }
+
+    return target;
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -170,6 +208,21 @@
     if (protoProps) _defineProperties(Constructor.prototype, protoProps);
     if (staticProps) _defineProperties(Constructor, staticProps);
     return Constructor;
+  }
+
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
   }
 
   function _slicedToArray(arr, i) {
@@ -543,6 +596,10 @@
       this.vm = vm;
       this.exprOrFn = exprOrFn;
       this.cb = cb;
+      this.user = options.user; //这是一个用户操作的watcher
+
+      this.isWatcher = typeof options === 'boolean'; //是初始化渲染watcher
+
       this.options = options;
       this.id = id++; //watcher的唯一标识
 
@@ -552,9 +609,24 @@
 
       if (typeof exprOrFn === 'function') {
         this.getter = exprOrFn;
-      }
+      } else {
+        this.getter = function () {
+          // exprOrFn 传递过来的可能是一个字符串a
+          //当去当前实例上取值的时候 才会触发依赖收集
+          var path = exprOrFn.split('.'); // ['a','a','a']
 
-      this.get(); //默认调用
+          var obj = vm;
+
+          for (var i = 0; i < path.length; i++) {
+            obj = obj[path[i]];
+          }
+
+          return obj;
+        };
+      } //默认会先调用一次get 进行取值 将结果保留下来
+
+
+      this.value = this.get(); //默认调用
     }
 
     _createClass(Watcher, [{
@@ -572,18 +644,25 @@
     }, {
       key: "get",
       value: function get() {
+        // console.warn('获取值');
         // Dep.target = watcher
         pushTarget(this); //当前watcher的实例
 
-        this.getter(); //调用exprOrFn  渲染页面 取值(执行了get方法)  调用render方法  with(vm){_v(msg)}
+        var result = this.getter(); //调用exprOrFn  渲染页面 取值(执行了get方法)  调用render方法  with(vm){_v(msg)}
 
         popTarget();
+        return result;
       }
     }, {
       key: "run",
       value: function run() {
-        console.log(111);
-        this.get(); //渲染逻辑
+        var newValue = this.get(); //渲染逻辑
+
+        var oldValue = this.value;
+
+        if (this.user) {
+          this.cb.call(this.vm, newValue, oldValue);
+        }
       }
     }, {
       key: "update",
@@ -599,7 +678,10 @@
   function flushSchedulerQueue() {
     queue.forEach(function (watcher) {
       watcher.run();
-      watcher.cb();
+
+      if (watcher.isWatcher) {
+        watcher.cb();
+      }
     });
     queue = []; // 清空watcher队列为了下次使用
 
@@ -715,10 +797,10 @@
     }; //这个watcher是用于渲染的,目前没有别的功能 调用updateComponent
 
 
-    var watcher = new Watcher(vm, updateComponent, function () {
+    new Watcher(vm, updateComponent, function () {
       callHook(vm, 'updated');
-    }, true);
-    console.log('watcher', watcher); //要把属性和watcher绑定在一起
+    }, true); // console.log('watcher', watcher);
+    //要把属性和watcher绑定在一起
 
     callHook(vm, 'mounted');
   } // callHook(vm,'beforeCreate')
@@ -828,8 +910,6 @@
     Object.defineProperty(data, key, {
       get: function get() {
         //依赖收集
-        console.log('获取值');
-
         if (Dep.target) {
           //让这个属性记住这个watcher
           dep.depend();
@@ -837,7 +917,6 @@
           if (childDep) {
             // 可能是数组也可能是对象
             // 默认给数组增加了一个dep属性,当对这个数组对象取值的时候
-            console.log(childDep);
             childDep.dep.depend(); //将数组的对应的依赖watcher存起来了
           }
         }
@@ -846,7 +925,6 @@
       },
       set: function set(newValue) {
         //依赖更新
-        console.log('设置值');
         if (newValue === value) return;
         observe(newValue); //如果用户设置的值还是一个对象,继续观测
 
@@ -881,7 +959,9 @@
 
     if (options.computed) ;
 
-    if (options.watch) ;
+    if (options.watch) {
+      initWatch(vm);
+    }
   }
 
   function initData(vm) {
@@ -900,9 +980,61 @@
     observe(data); // 让这个对象重新定义set 和 get
   }
 
+  function initWatch(vm) {
+    var watch = vm.$options.watch;
+
+    var _loop = function _loop(key) {
+      var handler = watch[key]; //handler可能是我数组 
+
+      if (Array.isArray(handler)) {
+        handler.forEach(function (handler) {
+          createWatcher(vm, key, handler);
+        });
+      } else {
+        createWatcher(vm, key, handler); // handler可能是字符串 对象 函数
+      }
+    };
+
+    for (var key in watch) {
+      _loop(key);
+    } // debugger
+    // console.log('watch', watch);
+
+  }
+
+  function createWatcher(vm, exprOrFn, handler, options) {
+    //options可以用来表示 是用户watcher
+    if (_typeof(handler) === 'object') {
+      options = handler;
+      handler = handler.handler; // 是一个函数
+    }
+
+    if (typeof handler === 'string') {
+      handler = vm[handler]; // 将实例上的方法座位handler
+    } // key handler 用户传入的选项
+
+
+    return vm.$watch(exprOrFn, handler, options);
+  }
+
   function stateMixin(Vue) {
     Vue.prototype.$nextTrick = function (cb) {
       nextTrick(cb);
+    };
+
+    Vue.prototype.$watch = function (exprOrFn, cb, options) {
+      // console.log(exprOrFn, cb, options);
+      options.user = true; // 标记为用户watcher
+      // 数据应该依赖这个watcher 数据变化后应该让watcher重新执行
+
+      new Watcher(this, exprOrFn, cb, _objectSpread2(_objectSpread2({}, options), {}, {
+        user: true
+      }));
+
+      if (options.immediate) {
+        //如果immediate则立即执行
+        cb();
+      }
     };
   }
 
@@ -1002,6 +1134,7 @@
   }
 
   function Vue(options) {
+    // console.error(options);
     this._init(options); // 初始化操作
 
   } //原型方法

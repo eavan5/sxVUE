@@ -24,12 +24,12 @@ const strategies = {}
 strategies.data = function (parentVal, childVal) {
   return childVal //这里应该有合并data的策略
 }
-strategies.computed = function () {
+// strategies.computed = function () {
 
-}
-strategies.watch = function () {
+// }
+// strategies.watch = function () {
 
-}
+// }
 function mergeHook(parentValue, childValue) {  // 声明周期的合并
   if (childValue) {
     if (parentValue) {
@@ -46,6 +46,7 @@ LIFECYCLE_HOOKS.forEach(hook => {
 })
 
 export function mergeOptions(parent, child) {
+  // console.log(parent);
   //遍历父亲,可能是父亲有 儿子没有
   const options = {}
   for (const key in parent) {  //父亲和儿子都有在这就全部处理了
@@ -74,7 +75,6 @@ export function mergeOptions(parent, child) {
       options[key] = child[key]
     }
   }
-  console.log('options', options);
   return options
 }
 let callbacks = []

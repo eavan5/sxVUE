@@ -1,4 +1,4 @@
-import Watcher from "./observer/wacher";
+import Watcher from "./observer/watcher";
 import { patch } from "./vdom/patch";
 
 export function lifecycleMixin(Vue) {
@@ -24,7 +24,7 @@ export function mountComponent(vm, el) {
   let watcher = new Watcher(vm, updateComponent, () => {
     callHook(vm, 'updated')
   }, true)
-  console.log('watcher', watcher);
+  // console.log('watcher', watcher);
   //要把属性和watcher绑定在一起
 
   callHook(vm, 'mounted')

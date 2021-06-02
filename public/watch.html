@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script src="../dist/vue.js"></script>
+  <div id="app">
+    {{a}}
+  </div>
+  <script>
+    let vm = new Vue({ 
+      el:'#app',
+      data:{
+        a:{a:{a:11}}
+      }, 
+      methods:{
+        aa(){
+          console.log('aa');
+        }
+      },
+      watch:{
+        // 1.直接 key value
+        // 'a'(newValue,oldValue){  //对象没有老值 都是新的
+        //   console.log('改变了');
+        // }, 
+          // 2,直接是key 和 数组
+          // 'a':[()=>console.log(1),()=>console.log(2)],
+          //3.直接是methods方法
+          // 'a':'aa'
+          //4.handle写法
+
+          'a.a.a':{
+           handler: function(newValue,oldValue){
+             console.log(newValue,oldValue);
+            console.log('观察');
+           }, 
+           async: true,
+          //  immediate: true
+          }
+      }
+    })
+   setTimeout(() => {
+    //  console.error('设置值111');
+      vm.a.a.a =2 
+   }, 100);//会触发set方法 => set方法会调用Watcher的run
+  </script>
+</body>
+</html>

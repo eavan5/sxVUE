@@ -6,6 +6,7 @@ import { stateMixin } from './state'
 
 // 用vue的构造函数 创建组件
 function Vue(options) {
+  // console.error(options);
   this._init(options) // 初始化操作
 }
 
